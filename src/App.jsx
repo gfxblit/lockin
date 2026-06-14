@@ -76,6 +76,17 @@ function StartScreen({ onSelect }) {
   )
 }
 
+function renderText(text) {
+  if (!text) return null
+  const parts = text.split(/(_[^_]+_)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('_') && part.endsWith('_')) {
+      return <i key={i} style={{ fontStyle: 'italic', color: '#4b5563' }}>{part.slice(1, -1)}</i>
+    }
+    return <span key={i}>{part}</span>
+  })
+}
+
 /* ── Option ────────────────────────────────────────────────────────────────── */
 
 function Option({ index, text, state, onPick }) {
@@ -151,8 +162,9 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
           Question {qIndex + 1}<span style={{ color: '#d1d5db' }}> / {total}</span>
         </div>
 
-        <h2 style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.5, color: '#111', margin: '0 0 24px' }}>
-          {q.question}
+        {/* Question text */}
+        <h2 style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.5, color: '#111', margin: '0 0 24px', whiteSpace: 'pre-wrap' }}>
+          {renderText(q.question)}
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
