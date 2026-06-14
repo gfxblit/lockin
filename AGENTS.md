@@ -2,7 +2,7 @@
 
 ## What this is
 
-Lock In is a minimal MCQ (multiple-choice quiz) web app. Students answer one question at a time, get immediate feedback, and see a results breakdown at the end. No backend. No auth. No routing library. Keep it that way.
+Lock In is a minimal MCQ (multiple-choice quiz) web app. Students pick a question bank from a start screen, answer one question at a time, get immediate feedback, and see a results breakdown at the end. No backend. No auth. No routing library. Keep it that way.
 
 ## Stack
 
@@ -17,13 +17,19 @@ The live URL is `https://gfxblit.github.io/lockin/`. Vite's `base` is set to `/l
 
 ```
 src/
-  App.jsx       — entire app: state, all components, mock data
-  main.jsx      — ReactDOM.createRoot entry point
-  index.css     — reset + font-family only; all other styles are inline
+  App.jsx              — entire app: state, all components, bank discovery
+  main.jsx             — ReactDOM.createRoot entry point
+  index.css            — reset + font-family only; all other styles are inline
+  banks/
+    react-basics.jsonl — one question bank (JSONL, one question per line)
+    *.jsonl            — add more banks here; they appear on the start screen automatically
+
+scripts/
+  generate-bank.js     — CLI tool: generates a JSONL bank via Claude API
 
 designs/
-  README.md     — authoritative design spec (colors, spacing, typography, behavior)
-  lockin.html   — interactive HTML prototype; open in browser to see the reference UI
+  README.md            — authoritative design spec (colors, spacing, typography, behavior)
+  lockin.html          — interactive HTML prototype; open in browser to see the reference UI
 
 .github/workflows/deploy.yml  — build + deploy to Pages on push to main
 ```
@@ -33,21 +39,63 @@ designs/
 Everything lives in `src/App.jsx`. The component tree:
 
 ```
-App                  — owns all state: qIndex, answers, showResults
+App                  — owns all state: selectedBank, qIndex, answers, showResults
+  StartScreen        — bank picker; one card per .jsonl file in src/banks/
   QuestionScreen     — progress bar, question text, option list, explanation, prev/next nav
     Option           — single answer row; handles correct/wrong/dimmed/default states
-  ResultsScreen      — score header, question breakdown, retake button
+  ResultsScreen      — score header, question breakdown, retake + back-to-banks buttons
 ```
 
-State is minimal by design:
+State:
 
 ```js
-const [qIndex, setQIndex]           = useState(0)
-const [answers, setAnswers]         = useState({})  // { [qIndex]: selectedOptionIndex }
-const [showResults, setShowResults] = useState(false)
+const [selectedBank, setSelectedBank] = useState(null)   // null = show StartScreen
+const [qIndex, setQIndex]             = useState(0)
+const [answers, setAnswers]           = useState({})     // { [qIndex]: selectedOptionIndex }
+const [showResults, setShowResults]   = useState(false)
 ```
 
-Answers are locked after selection (no changing your answer). Going back with Prev preserves the answer but doesn't let you re-pick.
+Flow: **StartScreen → QuestionScreen → ResultsScreen → (Retake → QuestionScreen | All Banks → StartScreen)**
+
+Answers are locked after selection (no changing your answer). Going back with Prev preserves the answer.
+
+## Bank discovery
+
+Banks are discovered at build time via Vite's `import.meta.glob`:
+
+```js
+const bankModules = import.meta.glob('./banks/*.jsonl', { query: '?raw', import: 'default', eager: true })
+```
+
+Each file is imported as a raw string, then parsed: `.trim().split('\n').filter(Boolean).map(JSON.parse)`.
+
+Display names are derived from filenames: `react-basics.jsonl` → `"React Basics"`.
+
+**To add a bank:** drop a `.jsonl` file in `src/banks/`, commit, push. No code changes needed.
+
+## JSONL schema
+
+One JSON object per line:
+
+```jsonl
+{"id":"q1","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}
+```
+
+- `id` — optional string
+- `question` — required
+- `options` — required, 2–5 items
+- `answer` — required, 0-indexed
+- `explanation` — optional; omit or empty string → no explanation box shown
+
+## Generating a new bank
+
+```bash
+ANTHROPIC_API_KEY=sk-... node scripts/generate-bank.js "Python OOP" 10
+```
+
+Writes `src/banks/python-oop.jsonl`. Then commit and push to deploy.
+
+The script uses `claude-sonnet-4-6`. Change the `model` field in the script to use a different model.
 
 ## Design tokens
 
@@ -64,16 +112,16 @@ The design spec in `designs/README.md` is the source of truth. Key values used i
 - **Inline styles only** — no CSS modules, no utility classes, no styled-components
 - **No comments** unless the why is non-obvious
 - **No abstraction before it's needed** — if a component is used once, it can stay in App.jsx
-- Keep components small and readable; don't extract helpers for single uses
+- Keep components small; don't extract helpers for single uses
 - The `Option` component's state machine (`default`/`correct`/`wrong`/`dimmed`) is the core interaction logic — keep it clean
 
 ## What not to do
 
-- Don't add a router — there are only two screens, a boolean flag is sufficient
+- Don't add a router — screen flow is managed with a single `selectedBank` state + two booleans
 - Don't add a CSS framework — the design is fully specified with exact values; a framework adds drift
 - Don't add TypeScript — not worth the setup cost for a project this size
 - Don't split into multiple files unless App.jsx gets unwieldy (>500 lines)
-- Don't add `localStorage` persistence unless the user asks — it's mentioned in the design spec as a suggestion, not a requirement
+- Don't add `localStorage` persistence unless asked
 
 ## CI/CD
 
@@ -85,19 +133,3 @@ The design spec in `designs/README.md` is the source of truth. Key values used i
 5. `actions/upload-pages-artifact@v3` + `actions/deploy-pages@v4`
 
 No lock file is committed (blocked by the repo owner's global gitignore), so the workflow uses `npm install` instead of `npm ci`.
-
-## Adding or changing questions
-
-Questions are in the `QUESTIONS` array at the top of `src/App.jsx`. Schema:
-
-```js
-{
-  id: "q1",           // optional string
-  question: "...",    // required
-  options: ["..."],   // required, 2–5 items
-  answer: 0,          // required, 0-indexed
-  explanation: "..."  // optional — omit or empty string to suppress the explanation box
-}
-```
-
-The longer-term design intention (from `designs/README.md`) is to load questions from a `.jsonl` file placed in `public/`. That work hasn't been done yet.

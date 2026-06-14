@@ -1,59 +1,31 @@
 import { useState } from 'react'
 
-const QUESTIONS = [
-  {
-    id: 'q1',
-    question: 'What is the primary purpose of the useEffect hook in React?',
-    options: [
-      'To manage component state',
-      'To perform side effects in functional components',
-      'To memoize expensive calculations',
-      'To handle client-side routing',
-    ],
-    answer: 1,
-    explanation: 'useEffect runs after render and synchronizes a component with an external system — for example, fetching data, setting up subscriptions, or manually updating the DOM.',
-  },
-  {
-    id: 'q2',
-    question: 'In React, how do props flow between components?',
-    options: [
-      'Child → parent only',
-      'Sibling → sibling automatically',
-      'Parent → child (one-way)',
-      'Any direction via props alone',
-    ],
-    answer: 2,
-  },
-  {
-    id: 'q3',
-    question: 'Which internal data structure does React use to efficiently update the UI?',
-    options: ['Shadow DOM', 'Abstract Syntax Tree', 'Linked list', 'Virtual DOM'],
-    answer: 3,
-    explanation: 'React maintains a Virtual DOM — a lightweight in-memory copy of the real DOM. On state changes, it diffs the new tree against the previous snapshot and applies only the necessary real DOM updates.',
-  },
-  {
-    id: 'q4',
-    question: 'Which hook returns a memoized callback to avoid re-creating it on every render?',
-    options: ['useCallback', 'useMemo', 'useRef', 'useContext'],
-    answer: 0,
-    explanation: 'useCallback(fn, deps) returns a memoized version of fn that only changes when its dependencies change — useful when passing callbacks to optimized child components that rely on reference equality.',
-  },
-  {
-    id: 'q5',
-    question: 'What does the key prop tell React when rendering a list?',
-    options: [
-      'It provides a keyboard shortcut for the element',
-      'It prevents the element from re-rendering unnecessarily',
-      'It encrypts the element\'s data for security',
-      'It helps React identify which items changed, were added, or removed',
-    ],
-    answer: 3,
-    explanation: 'Keys must be unique among siblings and stable across renders. React uses them to match list items during reconciliation, enabling efficient updates without re-mounting unchanged elements.',
-  },
-]
-
 const ACCENT = '#5B6EE8'
 const ACCENT_LIGHT = '#eef0fd'
+
+/* ── Bank discovery ────────────────────────────────────────────────────────── */
+
+const bankModules = import.meta.glob('./banks/*.jsonl', { query: '?raw', import: 'default', eager: true })
+
+function parseJSONL(raw) {
+  return raw.trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
+}
+
+function bankLabel(path) {
+  return path
+    .replace('./banks/', '')
+    .replace('.jsonl', '')
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
+const BANKS = Object.entries(bankModules).map(([path, raw]) => ({
+  id: path,
+  label: bankLabel(path),
+  questions: parseJSONL(raw),
+}))
+
+/* ── Helpers ───────────────────────────────────────────────────────────────── */
 
 function scoreLabel(pct) {
   if (pct === 100) return 'Perfect score!'
@@ -61,6 +33,50 @@ function scoreLabel(pct) {
   if (pct >= 60) return 'Good effort.'
   return 'Keep practicing.'
 }
+
+/* ── StartScreen ───────────────────────────────────────────────────────────── */
+
+function StartScreen({ onSelect }) {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '40px 16px',
+    }}>
+      <div style={{ width: '100%', maxWidth: 640 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <h1 style={{ fontSize: 36, fontWeight: 700, color: '#111', marginBottom: 8 }}>Lock In</h1>
+          <p style={{ fontSize: 16, color: '#6b7280', fontWeight: 500 }}>Pick a question bank to get started.</p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {BANKS.map(bank => (
+            <div
+              key={bank.id}
+              onClick={() => onSelect(bank)}
+              style={{
+                background: '#fff',
+                borderRadius: 14,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 6px 28px rgba(0,0,0,0.05)',
+                padding: '20px 24px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: 'pointer',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: '#111', marginBottom: 3 }}>{bank.label}</div>
+                <div style={{ fontSize: 13, color: '#9ca3af' }}>{bank.questions.length} questions</div>
+              </div>
+              <div style={{ fontSize: 20, color: ACCENT, fontWeight: 300 }}>→</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Option ────────────────────────────────────────────────────────────────── */
 
 function Option({ index, text, state, onPick }) {
   const letter = String.fromCharCode(65 + index)
@@ -101,6 +117,8 @@ function Option({ index, text, state, onPick }) {
     </div>
   )
 }
+
+/* ── QuestionScreen ────────────────────────────────────────────────────────── */
 
 function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) {
   const answered = selected !== undefined
@@ -198,7 +216,9 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
   )
 }
 
-function ResultsScreen({ questions, answers, onRetry }) {
+/* ── ResultsScreen ─────────────────────────────────────────────────────────── */
+
+function ResultsScreen({ questions, answers, onRetry, onBack }) {
   const correct = questions.filter((q, i) => answers[i] === q.answer).length
   const pct = Math.round((correct / questions.length) * 100)
 
@@ -249,23 +269,39 @@ function ResultsScreen({ questions, answers, onRetry }) {
           })}
         </div>
 
-        <button
-          onClick={onRetry}
-          style={{
-            width: '100%', marginTop: 20, padding: '11px',
-            border: `1.5px solid ${ACCENT}`, borderRadius: 10,
-            background: 'transparent', color: ACCENT,
-            fontSize: 15, fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          Retake Quiz
-        </button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <button
+            onClick={onBack}
+            style={{
+              flex: 1, padding: '11px',
+              border: '1.5px solid #e4e4e7', borderRadius: 10,
+              background: 'transparent', color: '#6b7280',
+              fontSize: 15, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            ← All Banks
+          </button>
+          <button
+            onClick={onRetry}
+            style={{
+              flex: 2, padding: '11px',
+              border: `1.5px solid ${ACCENT}`, borderRadius: 10,
+              background: 'transparent', color: ACCENT,
+              fontSize: 15, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Retake Quiz
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
+/* ── App ───────────────────────────────────────────────────────────────────── */
+
 export default function App() {
+  const [selectedBank, setSelectedBank] = useState(null)
   const [qIndex, setQIndex] = useState(0)
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
@@ -276,7 +312,7 @@ export default function App() {
   }
 
   function handleNext() {
-    if (qIndex === QUESTIONS.length - 1) setShowResults(true)
+    if (qIndex === selectedBank.questions.length - 1) setShowResults(true)
     else setQIndex(i => i + 1)
   }
 
@@ -286,6 +322,19 @@ export default function App() {
     setShowResults(false)
   }
 
+  function handleBack() {
+    setSelectedBank(null)
+    setQIndex(0)
+    setAnswers({})
+    setShowResults(false)
+  }
+
+  if (!selectedBank) {
+    return <StartScreen onSelect={setSelectedBank} />
+  }
+
+  const questions = selectedBank.questions
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -294,11 +343,11 @@ export default function App() {
     }}>
       <div style={{ width: '100%', maxWidth: 640 }}>
         {showResults
-          ? <ResultsScreen questions={QUESTIONS} answers={answers} onRetry={handleRetry} />
+          ? <ResultsScreen questions={questions} answers={answers} onRetry={handleRetry} onBack={handleBack} />
           : <QuestionScreen
-              q={QUESTIONS[qIndex]}
+              q={questions[qIndex]}
               qIndex={qIndex}
-              total={QUESTIONS.length}
+              total={questions.length}
               selected={answers[qIndex]}
               onPick={handlePick}
               onNext={handleNext}
