@@ -26,6 +26,7 @@ src/
 
 scripts/
   generate-bank.js     — CLI tool: generates a JSONL bank via Claude API
+  extract-images.js    — CLI tool: extracts surgical embedded images (maps, charts) from PDF
 
 designs/
   README.md            — authoritative design spec (colors, spacing, typography, behavior)
@@ -78,7 +79,7 @@ Display names are derived from filenames: `react-basics.jsonl` → `"React Basic
 One JSON object per line:
 
 ```jsonl
-{"id":"q1","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"..."}
+{"id":"q1","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"...","image":"images/..."}
 ```
 
 - `id` — optional string
@@ -86,16 +87,30 @@ One JSON object per line:
 - `options` — required, 2–5 items
 - `answer` — required, 0-indexed
 - `explanation` — optional; omit or empty string → no explanation box shown
+- `image` — optional; required for Type C questions (path from `public/`)
 
 ## Generating a new bank
 
+### From a Topic (Pure Text)
 ```bash
+# This requires an external API key and uses a legacy script
 ANTHROPIC_API_KEY=sk-... node scripts/generate-bank.js "Python OOP" 10
 ```
 
-Writes `src/banks/python-oop.jsonl`. Then commit and push to deploy.
+### From a PDF (Agent-Native Workflow)
+The preferred way to generate a bank from a PDF is to have the **Agent** handle it surgically without relying on the legacy `generate-bank-from-pdf.js` script (which requires an external API key).
 
-The script uses `claude-sonnet-4-6`. Change the `model` field in the script to use a different model.
+1. **Extract Images**: Run the extractor to get high-quality embedded maps/charts:
+   ```bash
+   node scripts/extract-images.js <pdf-path> --pages 1-30 --min-size 150
+   ```
+   This populates `public/images/<slug>/img-XXX.png`.
+2. **Visual Inspection**: The Agent MUST visually inspect the extracted images to identify those suitable for **Type C (Visual Document Analysis)** questions (maps, charts, primary-source art).
+3. **Internal Generation**: The Agent uses its own vision and processing capabilities to:
+   - Extract text context from the PDF.
+   - Cross-reference the extracted images.
+   - Generate MCQs following the `BANK-SPEC.md` (mix of Type A, B, and C).
+4. **Final Output**: The Agent writes the final `src/banks/<slug>.jsonl` file directly.
 
 ## Design tokens
 

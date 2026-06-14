@@ -162,6 +162,19 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
           Question {qIndex + 1}<span style={{ color: '#d1d5db' }}> / {total}</span>
         </div>
 
+        {q.image && (
+          <img
+            src={`${import.meta.env.BASE_URL}${q.image}`}
+            alt=""
+            style={{
+              width: '100%', borderRadius: 10,
+              border: '1px solid #e4e4e7',
+              marginBottom: 20,
+              display: 'block',
+            }}
+          />
+        )}
+
         {/* Question text */}
         <h2 style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.5, color: '#111', margin: '0 0 24px', whiteSpace: 'pre-wrap' }}>
           {renderText(q.question)}
