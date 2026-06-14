@@ -6,6 +6,8 @@ This document defines the requirements for generating question banks for the Loc
 - **No Hallucination:** All questions, options, and explanations must be grounded in the provided source material.
 - **Answer Integrity:** Never include the answer or strong spoilers within the question text itself.
 - **Explanations:** Every question must include an `explanation` field that clarifies *why* the answer is correct and provides a specific reference to the source material (e.g., "Strayer, Ch. 6").
+- **High-Nuance Distractors:** Avoid "obviously wrong" or "comical" distractors. All options must be plausible to a student who has not mastered the specific details of the text. Use similar regions, time periods, or historical processes as distractors to force precise recall.
+- **Target Difficulty:** Aim for a difficulty level where an advanced 8th-grade student would score between 50-75% on their first attempt. Questions should probe for "who, what, when, where, and why" as well as complex relationships between societies.
 
 ## 2. Question Types
 
