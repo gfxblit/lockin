@@ -15,7 +15,7 @@ vi.stubGlobal('importMetaGlobEager', {})
 
 // Provide the glob result directly via module mock
 vi.mock('./App.jsx', async () => {
-  const { useState, useEffect } = await import('react')
+  const { useState } = await import('react')
   const { sampleQuestions, scoreLabel } = await import('./utils')
 
   const QUIZ_SIZE = 10
@@ -215,17 +215,6 @@ describe('Quiz flow', () => {
 })
 
 describe('Results screen', () => {
-  function answerAll(container) {
-    render(<App />)
-    fireEvent.click(screen.getByText(/Test Bank/))
-    // answer all 10 questions correctly (answer index is 0 for all mock questions)
-    for (let i = 0; i < 10; i++) {
-      fireEvent.click(screen.getByTestId('option-0'))
-      const btn = screen.queryByText('See Results →') || screen.queryByText('Next →')
-      fireEvent.click(btn)
-    }
-  }
-
   it('shows results after finishing all questions', () => {
     render(<App />)
     fireEvent.click(screen.getByText(/Test Bank/))

@@ -328,10 +328,27 @@ function ResultsScreen({ questions, answers, onRetry, onBack }) {
 
 /* ── App ───────────────────────────────────────────────────────────────────── */
 
+function parseInitialURL() {
+  const params = new URLSearchParams(window.location.search)
+  const bankId = params.get('bank')
+  const qParam = params.get('q')
+  if (bankId) {
+    const bank = BANKS.find(b => b.id === bankId)
+    if (bank) {
+      const sampled = sampleQuestions(bank.questions, QUIZ_SIZE)
+      const idx = parseInt(qParam) - 1
+      return { bank, sampled, qIndex: (!isNaN(idx) && idx >= 0 && idx < sampled.length) ? idx : 0 }
+    }
+  }
+  return null
+}
+
+const urlInit = parseInitialURL()
+
 export default function App() {
-  const [selectedBank, setSelectedBank] = useState(null)
-  const [activeQuestions, setActiveQuestions] = useState([])
-  const [qIndex, setQIndex] = useState(0)
+  const [selectedBank, setSelectedBank] = useState(urlInit?.bank ?? null)
+  const [activeQuestions, setActiveQuestions] = useState(urlInit?.sampled ?? [])
+  const [qIndex, setQIndex] = useState(urlInit?.qIndex ?? 0)
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
 
@@ -343,26 +360,6 @@ export default function App() {
     setAnswers({})
     setShowResults(false)
   }
-
-  // Initialize from URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const bankId = params.get('bank')
-    const qParam = params.get('q')
-
-    if (bankId) {
-      const bank = BANKS.find(b => b.id === bankId)
-      if (bank) {
-        const sampled = sampleQuestions(bank.questions, QUIZ_SIZE)
-        setSelectedBank(bank)
-        setActiveQuestions(sampled)
-        const idx = parseInt(qParam) - 1
-        if (!isNaN(idx) && idx >= 0 && idx < sampled.length) {
-          setQIndex(idx)
-        }
-      }
-    }
-  }, [])
 
   // Sync to URL
   useEffect(() => {
