@@ -1,254 +1,237 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 
-// Mock import.meta.glob before App loads
-vi.mock('./banks/test-bank.jsonl?raw', () => ({ default: '' }), { virtual: true })
-
-const MOCK_QUESTIONS = Array.from({ length: 15 }, (_, i) => ({
-  question: `Question ${i}`,
-  options: ['Alpha', 'Beta', 'Gamma', 'Delta'],
-  answer: 0,
-  explanation: `Explanation for Q${i}`,
-}))
-
-vi.stubGlobal('importMetaGlobEager', {})
-
-// Provide the glob result directly via module mock
-vi.mock('./App.jsx', async () => {
-  const { useState } = await import('react')
-  const { sampleQuestions, scoreLabel } = await import('./utils')
-
-  const QUIZ_SIZE = 10
-  const BANKS = [
-    { id: 'test-bank', label: 'Test Bank', questions: MOCK_QUESTIONS },
-  ]
-
-  function StartScreen({ onSelect }) {
-    return (
-      <div>
-        {BANKS.map(b => (
-          <button key={b.id} onClick={() => onSelect(b)}>
-            {b.label} — {b.questions.length} questions
-          </button>
-        ))}
-      </div>
-    )
-  }
-
-  function Option({ index, text, state, onPick }) {
-    const letter = String.fromCharCode(65 + index)
-    return (
-      <div
-        data-testid={`option-${index}`}
-        data-state={state}
-        onClick={state === 'default' ? () => onPick(index) : undefined}
-        style={{ cursor: state === 'default' ? 'pointer' : 'default' }}
-      >
-        {letter}. {text}
-      </div>
-    )
-  }
-
-  function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) {
-    const answered = selected !== undefined
-    const isFirst = qIndex === 0
-    const isLast = qIndex === total - 1
-    function getState(i) {
-      if (!answered) return 'default'
-      if (i === q.answer) return 'correct'
-      if (i === selected) return 'wrong'
-      return 'dimmed'
-    }
-    return (
-      <div>
-        <div data-testid="progress">{qIndex + 1} / {total}</div>
-        <h2>{q.question}</h2>
-        {q.options.map((opt, i) => (
-          <Option key={i} index={i} text={opt} state={getState(i)} onPick={onPick} />
-        ))}
-        {answered && q.explanation && <div data-testid="explanation">{q.explanation}</div>}
-        <button onClick={onPrev} disabled={isFirst}>← Prev</button>
-        <button onClick={answered ? onNext : undefined} disabled={!answered}>
-          {isLast ? 'See Results →' : 'Next →'}
-        </button>
-      </div>
-    )
-  }
-
-  function ResultsScreen({ questions, answers, onRetry, onBack }) {
-    const correct = questions.filter((q, i) => answers[i] === q.answer).length
-    const pct = Math.round((correct / questions.length) * 100)
-    return (
-      <div>
-        <div data-testid="score">{pct}%</div>
-        <div data-testid="correct-count">{correct} of {questions.length} correct</div>
-        <div data-testid="score-label">{scoreLabel(pct)}</div>
-        <button onClick={onBack}>← All Banks</button>
-        <button onClick={onRetry}>Retake Quiz</button>
-      </div>
-    )
-  }
-
-  function App() {
-    const [selectedBank, setSelectedBank] = useState(null)
-    const [activeQuestions, setActiveQuestions] = useState([])
-    const [qIndex, setQIndex] = useState(0)
-    const [answers, setAnswers] = useState({})
-    const [showResults, setShowResults] = useState(false)
-
-    function selectBank(bank) {
-      setSelectedBank(bank)
-      setActiveQuestions(sampleQuestions(bank.questions, QUIZ_SIZE))
-      setQIndex(0)
-      setAnswers({})
-      setShowResults(false)
-    }
-
-    function handlePick(optIdx) {
-      if (answers[qIndex] !== undefined) return
-      setAnswers(prev => ({ ...prev, [qIndex]: optIdx }))
-    }
-
-    function handleNext() {
-      if (qIndex === activeQuestions.length - 1) setShowResults(true)
-      else setQIndex(i => i + 1)
-    }
-
-    function handleRetry() {
-      setActiveQuestions(sampleQuestions(selectedBank.questions, QUIZ_SIZE))
-      setQIndex(0)
-      setAnswers({})
-      setShowResults(false)
-    }
-
-    function handleBack() {
-      setSelectedBank(null)
-      setActiveQuestions([])
-      setQIndex(0)
-      setAnswers({})
-      setShowResults(false)
-    }
-
-    if (!selectedBank) return <StartScreen onSelect={selectBank} />
-
-    return showResults
-      ? <ResultsScreen questions={activeQuestions} answers={answers} onRetry={handleRetry} onBack={handleBack} />
-      : <QuestionScreen
-          q={activeQuestions[qIndex]}
-          qIndex={qIndex}
-          total={activeQuestions.length}
-          selected={answers[qIndex]}
-          onPick={handlePick}
-          onNext={handleNext}
-          onPrev={() => setQIndex(i => i - 1)}
-        />
-  }
-
-  return { default: App }
+// Make sampling deterministic: skip shuffle, just slice
+vi.mock('./utils.js', async (importOriginal) => {
+  const real = await importOriginal()
+  return { ...real, sampleQuestions: (questions, n) => questions.slice(0, n) }
 })
 
-const { default: App } = await import('./App.jsx')
+// Import real App AFTER mock is hoisted
+import App from './App.jsx'
+
+afterEach(cleanup)
+
+// Bank answers in order: [1,2,1,2,1,1,0,1,2,2]
+const ANSWERS = [1, 2, 1, 2, 1, 1, 0, 1, 2, 2]
+
+function clickOption(i) {
+  fireEvent.click(screen.getByTestId(`option-${i}`))
+}
+
+function clickNext() {
+  const btn = screen.queryByText('See Results →') ?? screen.queryByText('Next →')
+  fireEvent.click(btn)
+}
+
+function completeQuiz({ correct = false } = {}) {
+  render(<App />)
+  fireEvent.click(screen.getByText(/Chapter Six/i))
+  for (let i = 0; i < 10; i++) {
+    clickOption(correct ? ANSWERS[i] : (ANSWERS[i] === 0 ? 1 : 0))
+    clickNext()
+  }
+}
+
+/* ── StartScreen ─────────────────────────────────────────────────────────── */
 
 describe('StartScreen', () => {
-  it('renders available banks', () => {
+  it('renders the bank name', () => {
     render(<App />)
-    expect(screen.getByText(/Test Bank/)).toBeInTheDocument()
+    expect(screen.getByText(/Chapter Six/i)).toBeInTheDocument()
+  })
+
+  it('shows question count', () => {
+    render(<App />)
+    expect(screen.getByText(/10 questions/i)).toBeInTheDocument()
+  })
+
+  it('clicking a bank starts the quiz', () => {
+    render(<App />)
+    fireEvent.click(screen.getByText(/Chapter Six/i))
+    expect(screen.getByTestId('progress')).toBeInTheDocument()
   })
 })
 
-describe('Quiz flow', () => {
+/* ── QuestionScreen ──────────────────────────────────────────────────────── */
+
+describe('QuestionScreen', () => {
   beforeEach(() => {
     render(<App />)
-    fireEvent.click(screen.getByText(/Test Bank/))
+    fireEvent.click(screen.getByText(/Chapter Six/i))
   })
 
-  it('starts with 10 questions drawn from the bank', () => {
-    expect(screen.getByTestId('progress')).toHaveTextContent('1 / 10')
+  it('starts at question 1 of 10', () => {
+    expect(screen.getByTestId('progress')).toHaveTextContent('Question 1')
+    expect(screen.getByTestId('progress')).toHaveTextContent('/ 10')
   })
 
-  it('does not draw more than QUIZ_SIZE even though bank has 15', () => {
-    expect(screen.getByTestId('progress').textContent).toMatch(/\/ 10$/)
+  it('renders all 4 options', () => {
+    expect(screen.getByTestId('option-0')).toBeInTheDocument()
+    expect(screen.getByTestId('option-1')).toBeInTheDocument()
+    expect(screen.getByTestId('option-2')).toBeInTheDocument()
+    expect(screen.getByTestId('option-3')).toBeInTheDocument()
+  })
+
+  it('all options start in default state', () => {
+    for (let i = 0; i < 4; i++) {
+      expect(screen.getByTestId(`option-${i}`)).toHaveAttribute('data-state', 'default')
+    }
   })
 
   it('Next is disabled before answering', () => {
     expect(screen.getByText('Next →')).toBeDisabled()
   })
 
-  it('Next is enabled after answering', () => {
-    fireEvent.click(screen.getByTestId('option-0'))
+  it('Prev is disabled on question 1', () => {
+    expect(screen.getByText('← Prev')).toBeDisabled()
+  })
+
+  it('Next enables after picking any option', () => {
+    clickOption(0)
     expect(screen.getByText('Next →')).not.toBeDisabled()
   })
 
   it('shows explanation after answering', () => {
-    fireEvent.click(screen.getByTestId('option-0'))
+    expect(screen.queryByTestId('explanation')).not.toBeInTheDocument()
+    clickOption(0)
     expect(screen.getByTestId('explanation')).toBeInTheDocument()
   })
 
-  it('marks correct option as correct', () => {
-    fireEvent.click(screen.getByTestId('option-0')) // answer is 0
-    expect(screen.getByTestId('option-0')).toHaveAttribute('data-state', 'correct')
+  it('marks the correct option as correct', () => {
+    clickOption(ANSWERS[0]) // answer for Q1 is 1
+    expect(screen.getByTestId(`option-${ANSWERS[0]}`)).toHaveAttribute('data-state', 'correct')
   })
 
-  it('marks wrong pick and dims others', () => {
-    fireEvent.click(screen.getByTestId('option-1')) // wrong answer
-    expect(screen.getByTestId('option-1')).toHaveAttribute('data-state', 'wrong')
-    expect(screen.getByTestId('option-0')).toHaveAttribute('data-state', 'correct')
-    expect(screen.getByTestId('option-2')).toHaveAttribute('data-state', 'dimmed')
+  it('marks wrong pick, highlights correct, dims rest', () => {
+    const wrong = ANSWERS[0] === 0 ? 1 : 0
+    clickOption(wrong)
+    expect(screen.getByTestId(`option-${wrong}`)).toHaveAttribute('data-state', 'wrong')
+    expect(screen.getByTestId(`option-${ANSWERS[0]}`)).toHaveAttribute('data-state', 'correct')
+    // remaining two options are dimmed
+    for (let i = 0; i < 4; i++) {
+      if (i !== wrong && i !== ANSWERS[0]) {
+        expect(screen.getByTestId(`option-${i}`)).toHaveAttribute('data-state', 'dimmed')
+      }
+    }
   })
 
-  it('Prev is disabled on the first question', () => {
-    expect(screen.getByText('← Prev')).toBeDisabled()
+  it('ignores second click after answering', () => {
+    const wrong = ANSWERS[0] === 0 ? 1 : 0
+    clickOption(wrong)
+    clickOption(ANSWERS[0]) // try to change answer — should be ignored
+    expect(screen.getByTestId(`option-${wrong}`)).toHaveAttribute('data-state', 'wrong')
   })
 
-  it('advances to question 2 after answering and clicking Next', () => {
-    fireEvent.click(screen.getByTestId('option-0'))
-    fireEvent.click(screen.getByText('Next →'))
-    expect(screen.getByTestId('progress')).toHaveTextContent('2 / 10')
+  it('advances to question 2 after Next', () => {
+    clickOption(0)
+    clickNext()
+    expect(screen.getByTestId('progress')).toHaveTextContent('Question 2')
   })
 
-  it('can navigate back with Prev', () => {
-    fireEvent.click(screen.getByTestId('option-0'))
-    fireEvent.click(screen.getByText('Next →'))
+  it('Prev becomes enabled after advancing', () => {
+    clickOption(0)
+    clickNext()
+    expect(screen.getByText('← Prev')).not.toBeDisabled()
+  })
+
+  it('Prev navigates back to previous question', () => {
+    clickOption(0)
+    clickNext()
     fireEvent.click(screen.getByText('← Prev'))
-    expect(screen.getByTestId('progress')).toHaveTextContent('1 / 10')
+    expect(screen.getByTestId('progress')).toHaveTextContent('Question 1')
+  })
+
+  it('preserves answer when navigating back', () => {
+    const wrong = ANSWERS[0] === 0 ? 1 : 0
+    clickOption(wrong)
+    clickNext()
+    fireEvent.click(screen.getByText('← Prev'))
+    expect(screen.getByTestId(`option-${wrong}`)).toHaveAttribute('data-state', 'wrong')
+  })
+
+  it('shows "See Results →" on the last question', () => {
+    // advance to question 10
+    for (let i = 0; i < 9; i++) {
+      clickOption(0)
+      clickNext()
+    }
+    expect(screen.getByText('See Results →')).toBeInTheDocument()
+  })
+
+  it('shows the question text', () => {
+    // Q1 mentions Meroë
+    expect(screen.getByText(/Mero/i)).toBeInTheDocument()
   })
 })
 
-describe('Results screen', () => {
-  it('shows results after finishing all questions', () => {
-    render(<App />)
-    fireEvent.click(screen.getByText(/Test Bank/))
-    for (let i = 0; i < 10; i++) {
-      fireEvent.click(screen.getByTestId('option-0'))
-      const btn = screen.queryByText('See Results →') || screen.queryByText('Next →')
-      fireEvent.click(btn)
-    }
-    expect(screen.getByTestId('score')).toHaveTextContent('100%')
+/* ── ResultsScreen ───────────────────────────────────────────────────────── */
+
+describe('ResultsScreen', () => {
+  it('shows 100% when all answers are correct', () => {
+    completeQuiz({ correct: true })
+    expect(screen.getByTestId('score')).toHaveTextContent('100')
     expect(screen.getByTestId('correct-count')).toHaveTextContent('10 of 10 correct')
-    expect(screen.getByTestId('score-label')).toHaveTextContent('Perfect score!')
+    expect(screen.getByText('Perfect score!')).toBeInTheDocument()
   })
 
-  it('Retake Quiz returns to question 1', () => {
-    render(<App />)
-    fireEvent.click(screen.getByText(/Test Bank/))
-    for (let i = 0; i < 10; i++) {
-      fireEvent.click(screen.getByTestId('option-0'))
-      const btn = screen.queryByText('See Results →') || screen.queryByText('Next →')
-      fireEvent.click(btn)
-    }
+  it('shows 0% when all answers are wrong', () => {
+    completeQuiz({ correct: false })
+    expect(screen.getByTestId('score')).toHaveTextContent('0')
+    expect(screen.getByTestId('correct-count')).toHaveTextContent('0 of 10 correct')
+    expect(screen.getByText('Keep practicing.')).toBeInTheDocument()
+  })
+
+  it('shows breakdown list with one row per question', () => {
+    completeQuiz({ correct: true })
+    // 10 breakdown rows — each has a Q{n} label
+    expect(screen.getByText('Q1')).toBeInTheDocument()
+    expect(screen.getByText('Q10')).toBeInTheDocument()
+  })
+
+  it('Retake Quiz resets to question 1', () => {
+    completeQuiz({ correct: true })
     fireEvent.click(screen.getByText('Retake Quiz'))
-    expect(screen.getByTestId('progress')).toHaveTextContent('1 / 10')
+    expect(screen.getByTestId('progress')).toHaveTextContent('Question 1')
+  })
+
+  it('Retake Quiz clears previous answers', () => {
+    completeQuiz({ correct: true })
+    fireEvent.click(screen.getByText('Retake Quiz'))
+    expect(screen.getByText('Next →')).toBeDisabled()
   })
 
   it('All Banks returns to start screen', () => {
-    render(<App />)
-    fireEvent.click(screen.getByText(/Test Bank/))
-    for (let i = 0; i < 10; i++) {
-      fireEvent.click(screen.getByTestId('option-0'))
-      const btn = screen.queryByText('See Results →') || screen.queryByText('Next →')
-      fireEvent.click(btn)
-    }
+    completeQuiz({ correct: true })
     fireEvent.click(screen.getByText('← All Banks'))
-    expect(screen.getByText(/Test Bank/)).toBeInTheDocument()
+    expect(screen.getByText(/Chapter Six/i)).toBeInTheDocument()
+    expect(screen.queryByTestId('progress')).not.toBeInTheDocument()
+  })
+})
+
+/* ── scoreLabel via results ─────────────────────────────────────────────── */
+
+describe('score labels via results screen', () => {
+  it('shows "Great work!" when score is 80–99%', () => {
+    // Get exactly 8 correct out of 10 = 80%
+    render(<App />)
+    fireEvent.click(screen.getByText(/Chapter Six/i))
+    for (let i = 0; i < 10; i++) {
+      // correct for first 8, wrong for last 2
+      clickOption(i < 8 ? ANSWERS[i] : (ANSWERS[i] === 0 ? 1 : 0))
+      clickNext()
+    }
+    expect(screen.getByText('Great work!')).toBeInTheDocument()
+  })
+
+  it('shows "Good effort." when score is 60–79%', () => {
+    render(<App />)
+    fireEvent.click(screen.getByText(/Chapter Six/i))
+    for (let i = 0; i < 10; i++) {
+      // correct for first 6, wrong for last 4
+      clickOption(i < 6 ? ANSWERS[i] : (ANSWERS[i] === 0 ? 1 : 0))
+      clickNext()
+    }
+    expect(screen.getByText('Good effort.')).toBeInTheDocument()
   })
 })

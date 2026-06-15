@@ -81,6 +81,8 @@ function Option({ index, text, state, onPick }) {
 
   return (
     <div
+      data-testid={`option-${index}`}
+      data-state={state}
       onClick={state === 'default' ? () => onPick(index) : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 14,
@@ -147,7 +149,7 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
 
       <div style={{ padding: '32px 36px 36px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#9ca3af' }}>
+          <div data-testid="progress" style={{ fontSize: 13, fontWeight: 500, color: '#9ca3af' }}>
             Question {qIndex + 1}<span style={{ color: '#d1d5db' }}> / {total}</span>
           </div>
           <button
@@ -190,7 +192,7 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
         </div>
 
         {answered && q.explanation && (
-          <div style={{
+          <div data-testid="explanation" style={{
             marginTop: 14, padding: '13px 16px',
             background: ACCENT_LIGHT,
             borderLeft: `3px solid ${ACCENT}`,
@@ -257,10 +259,10 @@ function ResultsScreen({ questions, answers, onRetry, onBack }) {
       overflow: 'hidden', width: '100%',
     }}>
       <div style={{ padding: '48px 36px 36px', textAlign: 'center', borderBottom: '1px solid #f3f3f3' }}>
-        <div style={{ fontSize: 72, fontWeight: 700, color: ACCENT, lineHeight: 1, marginBottom: 10 }}>
+        <div data-testid="score" style={{ fontSize: 72, fontWeight: 700, color: ACCENT, lineHeight: 1, marginBottom: 10 }}>
           {pct}<span style={{ fontSize: 30, fontWeight: 500, opacity: 0.7 }}>%</span>
         </div>
-        <div style={{ fontSize: 16, color: '#6b7280', fontWeight: 500, marginBottom: 4 }}>
+        <div data-testid="correct-count" style={{ fontSize: 16, color: '#6b7280', fontWeight: 500, marginBottom: 4 }}>
           {correct} of {questions.length} correct
         </div>
         <div style={{ fontSize: 14, color: '#9ca3af' }}>{scoreLabel(pct)}</div>

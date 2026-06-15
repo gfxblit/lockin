@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "lint": "eslint src/",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -27,6 +29,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.6.0",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "vite": "^6.3.5",
     "vitest": "^4.1.8"
