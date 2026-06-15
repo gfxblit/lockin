@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { parseJSONL, bankLabel, sampleQuestions, scoreLabel } from './utils'
+import { parseJSONL, bankLabel, sampleQuestions, sampleQuestionsWithPinned, scoreLabel } from './utils'
 
 const ACCENT = '#5B6EE8'
 const ACCENT_LIGHT = '#eef0fd'
@@ -12,7 +12,7 @@ const bankModules = import.meta.glob('./banks/*.jsonl', { query: '?raw', import:
 const BANKS = Object.entries(bankModules).map(([path, raw]) => ({
   id: path.split('/').pop().replace('.jsonl', ''),
   label: bankLabel(path),
-  questions: parseJSONL(raw),
+  questions: parseJSONL(raw).map((q, i) => ({ ...q, _idx: i })),
 }))
 
 /* ── StartScreen ───────────────────────────────────────────────────────────── */
@@ -330,27 +330,32 @@ function ResultsScreen({ questions, answers, onRetry, onBack }) {
 
 /* ── App ───────────────────────────────────────────────────────────────────── */
 
-function parseInitialURL() {
-  const params = new URLSearchParams(window.location.search)
+function parseInitialURL(search = window.location.search) {
+  const params = new URLSearchParams(search)
   const bankId = params.get('bank')
   const qParam = params.get('q')
   if (bankId) {
     const bank = BANKS.find(b => b.id === bankId)
     if (bank) {
-      const sampled = sampleQuestions(bank.questions, QUIZ_SIZE)
-      const idx = parseInt(qParam) - 1
-      return { bank, sampled, qIndex: (!isNaN(idx) && idx >= 0 && idx < sampled.length) ? idx : 0 }
+      const targetIdx = parseInt(qParam)
+      if (!isNaN(targetIdx)) {
+        const target = bank.questions.find(q => q._idx === targetIdx)
+        if (target) {
+          const sampled = sampleQuestionsWithPinned(bank.questions, QUIZ_SIZE, targetIdx)
+          return { bank, sampled, qIndex: 0 }
+        }
+      }
+      return { bank, sampled: sampleQuestions(bank.questions, QUIZ_SIZE), qIndex: 0 }
     }
   }
   return null
 }
 
-const urlInit = parseInitialURL()
-
-export default function App() {
-  const [selectedBank, setSelectedBank] = useState(urlInit?.bank ?? null)
-  const [activeQuestions, setActiveQuestions] = useState(urlInit?.sampled ?? [])
-  const [qIndex, setQIndex] = useState(urlInit?.qIndex ?? 0)
+export default function App({ initialSearch }) {
+  const [initialState] = useState(() => parseInitialURL(initialSearch))
+  const [selectedBank, setSelectedBank] = useState(initialState?.bank ?? null)
+  const [activeQuestions, setActiveQuestions] = useState(initialState?.sampled ?? [])
+  const [qIndex, setQIndex] = useState(initialState?.qIndex ?? 0)
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
 
@@ -368,7 +373,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search)
     if (selectedBank && !showResults) {
       params.set('bank', selectedBank.id)
-      params.set('q', (qIndex + 1).toString())
+      params.set('q', activeQuestions[qIndex]._idx.toString())
     } else {
       params.delete('bank')
       params.delete('q')

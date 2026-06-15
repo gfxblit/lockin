@@ -20,6 +20,16 @@ export function sampleQuestions(questions, n) {
   return shuffled.slice(0, Math.min(n, shuffled.length))
 }
 
+export function sampleQuestionsWithPinned(questions, n, pinnedIdx) {
+  const pinned = questions.find(q => q._idx === pinnedIdx)
+  const rest = questions.filter(q => q._idx !== pinnedIdx)
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j], rest[i]]
+  }
+  return [pinned, ...rest.slice(0, Math.min(n - 1, rest.length))]
+}
+
 export function scoreLabel(pct) {
   if (pct === 100) return 'Perfect score!'
   if (pct >= 80) return 'Great work!'

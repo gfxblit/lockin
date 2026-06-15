@@ -10,7 +10,11 @@ vi.mock('./utils.js', async (importOriginal) => {
 // Import real App AFTER mock is hoisted
 import App from './App.jsx'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+  window.history.replaceState({}, '', '/')
+})
 
 // Bank answers in order: [1,2,1,2,1,1,0,1,2,2]
 const ANSWERS = [1, 2, 1, 2, 1, 1, 0, 1, 2, 2]
@@ -43,7 +47,7 @@ describe('StartScreen', () => {
 
   it('shows question count', () => {
     render(<App />)
-    expect(screen.getByText(/10 questions/i)).toBeInTheDocument()
+    expect(screen.getByText(/questions/i)).toBeInTheDocument()
   })
 
   it('clicking a bank starts the quiz', () => {

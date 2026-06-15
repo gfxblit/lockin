@@ -82,8 +82,8 @@ One JSON object per line:
 {"id":"q1","question":"...","options":["A","B","C","D"],"answer":0,"explanation":"...","image":"images/..."}
 ```
 
-- `id` — optional string
-- `question` — required
+- `id` — **Required string (zero-padded, e.g., "q01", "q02")**. Prevents lexicographical sorting issues during audits.
+- `question` — required; if referencing a visual source (e.g., "Map 6.1"), ensure the `image` field is populated.
 - `options` — required, 2–5 items
 - `answer` — required, 0-indexed
 - `explanation` — optional; omit or empty string → no explanation box shown
@@ -111,11 +111,21 @@ The preferred way to generate a bank from a PDF is to have the **Agent** handle 
      2. **Identify the PDF Offset**: Match the Strayer page to the PDF sequence (e.g., Strayer p. 278 is PDF p. 19).
      3. **Read the Extraction Log**: Find the image assigned to that PDF page (e.g., PDF p. 19 is img-018.png).
      4. **Confirm Content**: Verify the image content (dimensions and subject) matches the question text (e.g., "Map 6.3" is indeed on img-018.png).
+   - **Common Failure Modes (CRITICAL):**
+     - **The First-Page Offset:** Never assume PDF Page 1 is Printed Page 1. PDFs often have decorative covers or front matter that creates a permanent +1 or +2 offset.
+     - **Sidebar Noise:** One PDF page often yields 2-3 images (the main map + small sidebar icons or logos). This causes sequential indices (`img-001`, `img-002`) to drift away from PDF page numbers.
+     - **Mathematical Fallacy:** NEVER use a formula (e.g., `PDF_Page + 1`) to pick an image. You MUST list the files in the directory and verify the content of the specific image you are linking.
    - **The Page Number Paradox**: Never use the Strayer page number as the image index. Always use the extraction log's `(p.XX)` mapping as the source of truth for file paths.
    - **Watch for Index Drift**: Sequential extraction often includes small icons or sidebar art that can "displace" the main map. Verify dimensions (e.g., maps are usually >1000px) before mapping.
    - Generate MCQs following the `BANK-SPEC.md` (mix of Type A, B, and C).
 
-4. **Final Output**: The Agent writes the final `src/banks/<slug>.jsonl` file directly.
+4. **Post-Generation Audit (MANDATORY)**: After writing the `.jsonl` file, the Agent MUST:
+   - Verify every ID is zero-padded (q01, q02).
+   - Read the file back and manually confirm that every question referencing a visual (e.g. "In Visual Source 6.1...") has the *exact* corresponding image file path in the `image` field.
+   - **Visual-to-File Sanity Check:** Pick a random Type C question, look at the `image` path, and confirm it actually depicts what the question asks.
+   - Run a `wc -l` check to ensure the total question count matches the user's request.
+
+5. **Final Output**: The Agent writes the final `src/banks/<slug>.jsonl` file directly.
 
 ## Design tokens
 
