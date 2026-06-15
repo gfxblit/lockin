@@ -91,14 +91,11 @@ One JSON object per line:
 
 ## Generating a new bank
 
-### From a Topic (Pure Text)
-```bash
-# This requires an external API key and uses a legacy script
-ANTHROPIC_API_KEY=sk-... node scripts/generate-bank.js "Python OOP" 10
-```
+### Prequisites
+1. **ALWAYS** read the BANK-SPEC.md to understand the specification for the question bank.
 
 ### From a PDF (Agent-Native Workflow)
-The preferred way to generate a bank from a PDF is to have the **Agent** handle it surgically without relying on the legacy `generate-bank-from-pdf.js` script (which requires an external API key).
+The preferred way to generate a bank from a PDF is to have the **Agent** handle it.
 
 1. **Extract Images**: Run the extractor to get high-quality embedded maps/charts:
    ```bash
@@ -109,7 +106,10 @@ The preferred way to generate a bank from a PDF is to have the **Agent** handle 
 3. **Internal Generation**: The Agent uses its own vision and processing capabilities to:
    - Extract text context from the PDF.
    - Cross-reference the extracted images.
+   - **Verification**: THE AGENT MUST EXPLICITLY READ EVERY IMAGE FILE used in Type C questions to verify its content matches the question text.
+   - **Watch for Index Drift**: Sequential extraction (img-001, img-002) often includes small icons, legends, or sidebar art that can "displace" the main map or chart. Never assume the first image on a page is the primary visual; verify dimensions and content before mapping.
    - Generate MCQs following the `BANK-SPEC.md` (mix of Type A, B, and C).
+
 4. **Final Output**: The Agent writes the final `src/banks/<slug>.jsonl` file directly.
 
 ## Design tokens
