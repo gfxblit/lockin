@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const ACCENT = '#5B6EE8'
 const ACCENT_LIGHT = '#eef0fd'
@@ -13,14 +13,15 @@ function parseJSONL(raw) {
 
 function bankLabel(path) {
   return path
-    .replace('./banks/', '')
+    .split('/')
+    .pop()
     .replace('.jsonl', '')
     .replace(/-/g, ' ')
     .replace(/\b\w/g, c => c.toUpperCase())
 }
 
 const BANKS = Object.entries(bankModules).map(([path, raw]) => ({
-  id: path,
+  id: path.split('/').pop().replace('.jsonl', ''),
   label: bankLabel(path),
   questions: parseJSONL(raw),
 }))
@@ -132,6 +133,7 @@ function Option({ index, text, state, onPick }) {
 /* ── QuestionScreen ────────────────────────────────────────────────────────── */
 
 function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) {
+  const [copied, setCopied] = useState(false)
   const answered = selected !== undefined
   const isFirst = qIndex === 0
   const isLast = qIndex === total - 1
@@ -142,6 +144,12 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
     if (i === q.answer) return 'correct'
     if (i === selected) return 'wrong'
     return 'dimmed'
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -158,8 +166,23 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
       </div>
 
       <div style={{ padding: '32px 36px 36px' }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: '#9ca3af', marginBottom: 18 }}>
-          Question {qIndex + 1}<span style={{ color: '#d1d5db' }}> / {total}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#9ca3af' }}>
+            Question {qIndex + 1}<span style={{ color: '#d1d5db' }}> / {total}</span>
+          </div>
+          <button
+            onClick={handleCopy}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 12, color: ACCENT, fontWeight: 600,
+              padding: '4px 8px', borderRadius: 6,
+              transition: 'background 150ms ease',
+            }}
+            onMouseEnter={e => e.target.style.background = ACCENT_LIGHT}
+            onMouseLeave={e => e.target.style.background = 'none'}
+          >
+            {copied ? '✓ Copied!' : 'Copy Permalink'}
+          </button>
         </div>
 
         {q.image && (
@@ -330,6 +353,38 @@ export default function App() {
   const [qIndex, setQIndex] = useState(0)
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
+
+  // Initialize from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const bankId = params.get('bank')
+    const qParam = params.get('q')
+
+    if (bankId) {
+      const bank = BANKS.find(b => b.id === bankId)
+      if (bank) {
+        setSelectedBank(bank)
+        const idx = parseInt(qParam) - 1
+        if (!isNaN(idx) && idx >= 0 && idx < bank.questions.length) {
+          setQIndex(idx)
+        }
+      }
+    }
+  }, [])
+
+  // Sync to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (selectedBank && !showResults) {
+      params.set('bank', selectedBank.id)
+      params.set('q', (qIndex + 1).toString())
+    } else {
+      params.delete('bank')
+      params.delete('q')
+    }
+    const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '')
+    window.history.replaceState({}, '', newUrl)
+  }, [selectedBank, qIndex, showResults])
 
   function handlePick(optIdx) {
     if (answers[qIndex] !== undefined) return
