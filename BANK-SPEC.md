@@ -4,6 +4,7 @@ This document defines the requirements for generating question banks for the Loc
 
 ## 1. Core Principles
 - **No Hallucination:** All questions, options, and explanations must be grounded in the provided source material.
+- **No Internal Labels:** Do NOT include internal labels like "Type A:", "Quizlet-Style", "Document Analysis", or "Visual Document Analysis" within the user-facing `question` field. The question text should be clean and direct.
 - **Answer Integrity:** Never include the answer or strong spoilers within the question text itself.
 - **Explanations:** Every question must include an `explanation` field that clarifies *why* the answer is correct and provides a specific reference to the source material (e.g., "Strayer, Ch. 6").
 - **High-Nuance Distractors:** Avoid "obviously wrong" or "comical" distractors. All options must be plausible to a student who has not mastered the specific details of the text. Use similar regions, time periods, or historical processes as distractors to force precise recall.
