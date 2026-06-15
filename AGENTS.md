@@ -106,8 +106,13 @@ The preferred way to generate a bank from a PDF is to have the **Agent** handle 
 3. **Internal Generation**: The Agent uses its own vision and processing capabilities to:
    - Extract text context from the PDF.
    - Cross-reference the extracted images.
-   - **Verification**: THE AGENT MUST EXPLICITLY READ EVERY IMAGE FILE used in Type C questions to verify its content matches the question text.
-   - **Watch for Index Drift**: Sequential extraction (img-001, img-002) often includes small icons, legends, or sidebar art that can "displace" the main map or chart. Never assume the first image on a page is the primary visual; verify dimensions and content before mapping.
+   - **Visual Verification Protocol (CRITICAL)**: For every Type C question, the Agent MUST perform a four-way consistency check:
+     1. **Anchor the Page**: Identify the Strayer page number (e.g., p. 278).
+     2. **Identify the PDF Offset**: Match the Strayer page to the PDF sequence (e.g., Strayer p. 278 is PDF p. 19).
+     3. **Read the Extraction Log**: Find the image assigned to that PDF page (e.g., PDF p. 19 is img-018.png).
+     4. **Confirm Content**: Verify the image content (dimensions and subject) matches the question text (e.g., "Map 6.3" is indeed on img-018.png).
+   - **The Page Number Paradox**: Never use the Strayer page number as the image index. Always use the extraction log's `(p.XX)` mapping as the source of truth for file paths.
+   - **Watch for Index Drift**: Sequential extraction often includes small icons or sidebar art that can "displace" the main map. Verify dimensions (e.g., maps are usually >1000px) before mapping.
    - Generate MCQs following the `BANK-SPEC.md` (mix of Type A, B, and C).
 
 4. **Final Output**: The Agent writes the final `src/banks/<slug>.jsonl` file directly.
