@@ -1,39 +1,19 @@
 import { useState, useEffect } from 'react'
+import { parseJSONL, bankLabel, sampleQuestions, scoreLabel } from './utils'
 
 const ACCENT = '#5B6EE8'
 const ACCENT_LIGHT = '#eef0fd'
+const QUIZ_SIZE = 10
 
 /* ── Bank discovery ────────────────────────────────────────────────────────── */
 
 const bankModules = import.meta.glob('./banks/*.jsonl', { query: '?raw', import: 'default', eager: true })
-
-function parseJSONL(raw) {
-  return raw.trim().split('\n').filter(Boolean).map(line => JSON.parse(line))
-}
-
-function bankLabel(path) {
-  return path
-    .split('/')
-    .pop()
-    .replace('.jsonl', '')
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase())
-}
 
 const BANKS = Object.entries(bankModules).map(([path, raw]) => ({
   id: path.split('/').pop().replace('.jsonl', ''),
   label: bankLabel(path),
   questions: parseJSONL(raw),
 }))
-
-/* ── Helpers ───────────────────────────────────────────────────────────────── */
-
-function scoreLabel(pct) {
-  if (pct === 100) return 'Perfect score!'
-  if (pct >= 80) return 'Great work!'
-  if (pct >= 60) return 'Good effort.'
-  return 'Keep practicing.'
-}
 
 /* ── StartScreen ───────────────────────────────────────────────────────────── */
 
@@ -350,9 +330,19 @@ function ResultsScreen({ questions, answers, onRetry, onBack }) {
 
 export default function App() {
   const [selectedBank, setSelectedBank] = useState(null)
+  const [activeQuestions, setActiveQuestions] = useState([])
   const [qIndex, setQIndex] = useState(0)
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
+
+  function selectBank(bank) {
+    const sampled = sampleQuestions(bank.questions, QUIZ_SIZE)
+    setSelectedBank(bank)
+    setActiveQuestions(sampled)
+    setQIndex(0)
+    setAnswers({})
+    setShowResults(false)
+  }
 
   // Initialize from URL
   useEffect(() => {
@@ -363,9 +353,11 @@ export default function App() {
     if (bankId) {
       const bank = BANKS.find(b => b.id === bankId)
       if (bank) {
+        const sampled = sampleQuestions(bank.questions, QUIZ_SIZE)
         setSelectedBank(bank)
+        setActiveQuestions(sampled)
         const idx = parseInt(qParam) - 1
-        if (!isNaN(idx) && idx >= 0 && idx < bank.questions.length) {
+        if (!isNaN(idx) && idx >= 0 && idx < sampled.length) {
           setQIndex(idx)
         }
       }
@@ -392,11 +384,12 @@ export default function App() {
   }
 
   function handleNext() {
-    if (qIndex === selectedBank.questions.length - 1) setShowResults(true)
+    if (qIndex === activeQuestions.length - 1) setShowResults(true)
     else setQIndex(i => i + 1)
   }
 
   function handleRetry() {
+    setActiveQuestions(sampleQuestions(selectedBank.questions, QUIZ_SIZE))
     setQIndex(0)
     setAnswers({})
     setShowResults(false)
@@ -404,16 +397,15 @@ export default function App() {
 
   function handleBack() {
     setSelectedBank(null)
+    setActiveQuestions([])
     setQIndex(0)
     setAnswers({})
     setShowResults(false)
   }
 
   if (!selectedBank) {
-    return <StartScreen onSelect={setSelectedBank} />
+    return <StartScreen onSelect={selectBank} />
   }
-
-  const questions = selectedBank.questions
 
   return (
     <div style={{
@@ -423,11 +415,11 @@ export default function App() {
     }}>
       <div style={{ width: '100%', maxWidth: 640 }}>
         {showResults
-          ? <ResultsScreen questions={questions} answers={answers} onRetry={handleRetry} onBack={handleBack} />
+          ? <ResultsScreen questions={activeQuestions} answers={answers} onRetry={handleRetry} onBack={handleBack} />
           : <QuestionScreen
-              q={questions[qIndex]}
+              q={activeQuestions[qIndex]}
               qIndex={qIndex}
-              total={questions.length}
+              total={activeQuestions.length}
               selected={answers[qIndex]}
               onPick={handlePick}
               onNext={handleNext}
