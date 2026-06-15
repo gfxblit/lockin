@@ -2,7 +2,26 @@
 
 A minimal, high-rigor multiple-choice quiz interface. One question at a time, immediate feedback, and results breakdown. Designed for students who need to "lock in" on complex historical or technical material.
 
+![Lock In Preview](./assets/app-preview.png)
+
 **Live:** [https://gfxblit.github.io/lockin/](https://gfxblit.github.io/lockin/)
+
+## The Experience
+
+Lock In is designed to minimize distraction while maximizing recall.
+
+| Start Screen | Visual Questions | Feedback & Results |
+| :--- | :--- | :--- |
+| ![Start](./assets/start-screen.png) | ![Visual](./assets/visual-question.png) | ![Results](./assets/results-screen.png) |
+
+- **Immediate Feedback**: Know exactly why you missed a question with inline pedagogical explanations.
+
+  | Correct State | Incorrect State |
+  | :--- | :--- |
+  | ![Correct](./assets/question-correct.png) | ![Wrong](./assets/question-wrong.png) |
+
+- **Visual Evidence**: Support for Type C questions using embedded maps, charts, and artifacts.
+- **Clear Progression**: Track your score and see a full breakdown at the end.
 
 ## Features
 
