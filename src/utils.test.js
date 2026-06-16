@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseJSONL, bankLabel, sampleQuestions, sampleQuestionsWithPinned, scoreLabel } from './utils'
+import { parseJSONL, bankLabel, sampleQuestions, scoreLabel } from './utils'
 
 describe('utils', () => {
   it('parseJSONL parses valid JSONL', () => {
@@ -14,17 +14,6 @@ describe('utils', () => {
   it('sampleQuestions returns n questions', () => {
     const questions = [1, 2, 3, 4, 5]
     expect(sampleQuestions(questions, 3)).toHaveLength(3)
-  })
-
-  it('sampleQuestionsWithPinned includes the pinned question', () => {
-    const questions = [
-      { id: 'q1', _idx: 0 },
-      { id: 'q2', _idx: 1 },
-      { id: 'q3', _idx: 2 },
-    ]
-    const sampled = sampleQuestionsWithPinned(questions, 2, 1)
-    expect(sampled).toHaveLength(2)
-    expect(sampled[0]).toEqual({ id: 'q2', _idx: 1 })
   })
 
   it('scoreLabel returns correct thresholds', () => {

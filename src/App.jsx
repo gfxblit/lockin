@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { parseJSONL, bankLabel, sampleQuestions, sampleQuestionsWithPinned, scoreLabel } from './utils'
+import { parseJSONL, bankLabel, sampleQuestions, scoreLabel } from './utils'
 
 const ACCENT = '#5B6EE8'
 const ACCENT_LIGHT = '#eef0fd'
@@ -12,7 +12,7 @@ const bankModules = import.meta.glob('./banks/*.jsonl', { query: '?raw', import:
 const BANKS = Object.entries(bankModules).map(([path, raw]) => ({
   id: path.split('/').pop().replace('.jsonl', ''),
   label: bankLabel(path),
-  questions: parseJSONL(raw).map((q, i) => ({ ...q, _idx: i })),
+  questions: parseJSONL(raw).map((q, i) => ({ ...q, _idx: i + 1 })),
 }))
 
 /* ── StartScreen ───────────────────────────────────────────────────────────── */
@@ -241,6 +241,10 @@ function QuestionScreen({ q, qIndex, total, selected, onPick, onNext, onPrev }) 
             {isLast ? 'See Results →' : 'Next →'}
           </button>
         </div>
+
+        <div data-testid="question-id" style={{ marginTop: 16, fontSize: 12, fontWeight: 600, color: '#9ca3af', textAlign: 'center' }}>
+          ID: {q.id}
+        </div>
       </div>
     </div>
   )
@@ -333,22 +337,25 @@ function ResultsScreen({ questions, answers, onRetry, onBack }) {
 function parseInitialURL(search = window.location.search) {
   const params = new URLSearchParams(search)
   const bankId = params.get('bank')
-  const qParam = params.get('q')
-  if (bankId) {
-    const bank = BANKS.find(b => b.id === bankId)
-    if (bank) {
-      const targetIdx = parseInt(qParam)
-      if (!isNaN(targetIdx)) {
-        const target = bank.questions.find(q => q._idx === targetIdx)
-        if (target) {
-          const sampled = sampleQuestionsWithPinned(bank.questions, QUIZ_SIZE, targetIdx)
-          return { bank, sampled, qIndex: 0 }
-        }
-      }
-      return { bank, sampled: sampleQuestions(bank.questions, QUIZ_SIZE), qIndex: 0 }
-    }
+  if (!bankId) return null
+
+  const bank = BANKS.find(b => b.id === bankId)
+  if (!bank) return null
+
+  const qsParam = params.get('qs')
+  if (!qsParam) {
+    return { bank, sampled: sampleQuestions(bank.questions, QUIZ_SIZE), qIndex: 0 }
   }
-  return null
+
+  const byIdx = new Map(bank.questions.map(q => [q._idx, q]))
+  const ids = qsParam.split(',').map(s => parseInt(s, 10))
+  const sampled = ids.map(id => byIdx.get(id))
+  if (sampled.length === 0 || sampled.some(q => q === undefined)) return null
+
+  const i = parseInt(params.get('i'), 10)
+  const qIndex = Number.isInteger(i) ? Math.min(Math.max(i, 0), sampled.length - 1) : 0
+
+  return { bank, sampled, qIndex }
 }
 
 export default function App({ initialSearch }) {
@@ -368,17 +375,25 @@ export default function App({ initialSearch }) {
     setShowResults(false)
   }
 
-  // Sync to URL
+  // Sync to URL. Built manually (not via URLSearchParams.toString()) so commas
+  // in `qs` stay readable instead of being escaped to %2C.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    params.delete('bank')
+    params.delete('qs')
+    params.delete('i')
+    const rest = params.toString()
+
+    let search = ''
     if (selectedBank && !showResults) {
-      params.set('bank', selectedBank.id)
-      params.set('q', activeQuestions[qIndex]._idx.toString())
+      const qs = activeQuestions.map(q => q._idx).join(',')
+      search = `bank=${encodeURIComponent(selectedBank.id)}&qs=${qs}&i=${qIndex}`
+      if (rest) search += '&' + rest
     } else {
-      params.delete('bank')
-      params.delete('q')
+      search = rest
     }
-    const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '')
+
+    const newUrl = window.location.pathname + (search ? '?' + search : '')
     window.history.replaceState({}, '', newUrl)
   }, [selectedBank, qIndex, showResults])
 
