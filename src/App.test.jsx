@@ -47,7 +47,7 @@ describe('StartScreen', () => {
 
   it('shows question count', () => {
     render(<App />)
-    expect(screen.getByText(/questions/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/questions/i)[0]).toBeInTheDocument()
   })
 
   it('clicking a bank starts the quiz', () => {

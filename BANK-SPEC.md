@@ -12,6 +12,11 @@ This document defines the requirements for generating question banks for the Loc
 
 ## 2. Question Types
 
+To ensure a balanced assessment, question banks should follow this distribution:
+- **Type A (Quizlet-Style):** 50%
+- **Type B (Document Analysis):** 24%
+- **Type C (Visual Document Analysis):** 26%
+
 ### Type A: Quizlet-Style (Conceptual & Concise)
 - **Goal:** Probe for understanding of key terms, historical significance, or comparative concepts.
 - **Format:** Short, direct questions.
