@@ -7,8 +7,13 @@ vi.mock('./utils.js', async (importOriginal) => {
   return { ...real, sampleQuestions: (questions, n) => questions.slice(0, n) }
 })
 
+vi.mock('./analytics.js', () => ({
+  logVisit: vi.fn()
+}))
+
 // Import real App AFTER mock is hoisted
 import App from './App.jsx'
+import { logVisit } from './analytics.js'
 
 afterEach(() => {
   cleanup()
@@ -237,5 +242,37 @@ describe('score labels via results screen', () => {
       clickNext()
     }
     expect(screen.getByText('Good effort.')).toBeInTheDocument()
+  })
+})
+
+/* ── Analytics ───────────────────────────────────────────────────────────── */
+
+describe('Analytics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('logs start_quiz when a bank is clicked', () => {
+    render(<App />)
+    fireEvent.click(screen.getByText(/Chapter Six/i))
+    expect(logVisit).toHaveBeenCalledWith('start_quiz:chapter-six-commonalities-and-variations')
+  })
+
+  it('logs start_quiz when landing via deep link', () => {
+    render(<App initialSearch="?bank=chapter-six-commonalities-and-variations&qs=1,2,3&i=0" />)
+    expect(logVisit).toHaveBeenCalledWith('start_quiz:chapter-six-commonalities-and-variations')
+  })
+
+  it('logs complete_quiz with score when quiz is completed', () => {
+    render(<App />)
+    fireEvent.click(screen.getByText(/Chapter Six/i))
+    for (let i = 0; i < 10; i++) {
+      clickOption(ANSWERS[i])
+      clickNext()
+    }
+    expect(logVisit).toHaveBeenCalledWith(
+      'complete_quiz:chapter-six-commonalities-and-variations',
+      100
+    )
   })
 })

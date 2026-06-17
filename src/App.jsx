@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { parseJSONL, bankLabel, sampleQuestions, scoreLabel } from './utils'
+import { logVisit } from './analytics'
+
 
 const ACCENT = '#5B6EE8'
 const ACCENT_LIGHT = '#eef0fd'
@@ -366,7 +368,14 @@ export default function App({ initialSearch }) {
   const [answers, setAnswers] = useState({})
   const [showResults, setShowResults] = useState(false)
 
+  useEffect(() => {
+    if (initialState?.bank) {
+      logVisit(`start_quiz:${initialState.bank.id}`)
+    }
+  }, [initialState])
+
   function selectBank(bank) {
+    logVisit(`start_quiz:${bank.id}`)
     const sampled = sampleQuestions(bank.questions, QUIZ_SIZE)
     setSelectedBank(bank)
     setActiveQuestions(sampled)
@@ -395,7 +404,7 @@ export default function App({ initialSearch }) {
 
     const newUrl = window.location.pathname + (search ? '?' + search : '')
     window.history.replaceState({}, '', newUrl)
-  }, [selectedBank, qIndex, showResults])
+  }, [selectedBank, activeQuestions, qIndex, showResults])
 
   function handlePick(optIdx) {
     if (answers[qIndex] !== undefined) return
@@ -403,11 +412,18 @@ export default function App({ initialSearch }) {
   }
 
   function handleNext() {
-    if (qIndex === activeQuestions.length - 1) setShowResults(true)
-    else setQIndex(i => i + 1)
+    if (qIndex === activeQuestions.length - 1) {
+      const correct = activeQuestions.filter((q, i) => answers[i] === q.answer).length
+      const pct = Math.round((correct / activeQuestions.length) * 100)
+      logVisit(`complete_quiz:${selectedBank.id}`, pct)
+      setShowResults(true)
+    } else {
+      setQIndex(i => i + 1)
+    }
   }
 
   function handleRetry() {
+    logVisit(`start_quiz:${selectedBank.id}`)
     setActiveQuestions(sampleQuestions(selectedBank.questions, QUIZ_SIZE))
     setQIndex(0)
     setAnswers({})
@@ -421,6 +437,7 @@ export default function App({ initialSearch }) {
     setAnswers({})
     setShowResults(false)
   }
+
 
   if (!selectedBank) {
     return <StartScreen onSelect={selectBank} />
